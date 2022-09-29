@@ -102,14 +102,14 @@ class RankingModel(tfrs.Model):
     # predictions.
     concatenated_embeddings = tf.concat(
         [user_embedding_repeated, movie_embeddings], 2)
-
+    pprint.pprint("concat embedding shape: " + str(concatenated_embeddings))
     return self.score_model(concatenated_embeddings)
 
   def compute_loss(self, features, training=False):
     labels = features.pop("user_rating")
-
+    pprint.pprint("tutorial label shape check: " + str(labels))
     scores = self(features)
-
+    print("tutorial scores shape: " + str(scores))
     return self.task(
         labels=labels,
         predictions=tf.squeeze(scores, axis=-1),
@@ -131,3 +131,13 @@ listwise_model.fit(cached_train, epochs=epochs, verbose=False)
 
 listwise_model_result = listwise_model.evaluate(cached_test, return_dict=True)
 print("NDCG of the ListMLE model: {:.4f}".format(listwise_model_result["ndcg_metric"]))
+
+print("PREDICTIONS: " + str(np.squeeze(listwise_model.predict(cached_test))))
+
+
+for rank in cached_test.as_numpy_iterator():
+  print("RANKINGS: " + str(rank['user_rating']))
+  y_pred=np.squeeze(listwise_model.predict(cached_test))
+  y_true = rank['user_rating']
+  ndcg = tfr.keras.metrics.NDCGMetric()
+  print("RANKING SCORE TEST: " + str(ndcg(y_true, y_pred).numpy()))

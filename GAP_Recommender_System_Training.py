@@ -13,9 +13,13 @@ for _ in range(1000):
 	embedding=np.random.choice(100,10)
 	rank = np.random.choice(100,1).astype('float64')
 	cc_id = np.random.choice(1000,1)
-	dataset["cc_id"].append(str(cc_id))
+	dataset["cc_id"].append(str(cc_id[0]))
 	dataset["embeddings"].append(embedding)
 	dataset["ranking"].append(rank)
+tf.debugging.experimental.enable_dump_debug_info(
+    "/Users/colinfritz/Desktop/my_repos/GAP_Recommender_System_MVP/mvp_logs",
+    tensor_debug_mode="FULL_HEALTH",
+    circular_buffer_size=-1)
 print(len(set(dataset['cc_id'])))
 dataset = tf.data.Dataset.from_tensor_slices(dataset)
 
