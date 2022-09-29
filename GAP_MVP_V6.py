@@ -20,11 +20,7 @@ def _create_feature_dict():
   return {"embeddings": [], "ranking": []}
 
 
-def _sample_list(
-    feature_lists,
-    num_examples_per_list,
-    random_state,
-):
+def _sample_list(feature_lists,num_examples_per_list,random_state):
   """Function for sampling a list example from given feature lists."""
   if random_state is None:
     random_state = np.random.RandomState()
@@ -123,24 +119,33 @@ test = shuffled.skip(train_size).take(test_size)
 cached_train = train.shuffle(1000).batch(batch_size).cache()
 cached_test = test.batch(batch_size).cache()
 
-inputs = keras.Input(shape=(2,137))
+inputs = keras.Input(shape=(num_examples_per_list,137))
 layer_one=tf.keras.layers.Dense(256, activation="relu")(inputs)
 layer_two=tf.keras.layers.Dense(64, activation="relu")(layer_one)
 layer_three=tf.keras.layers.Dense(1)(layer_two)
-outputs = tf.keras.layers.Reshape((2,))(layer_three)
-listwise_model = keras.Model(inputs=inputs, outputs=outputs, name="ranking_model")
+outputs = tf.keras.layers.Reshape((num_examples_per_list,))(layer_three)
+listwise_model = keras.Model(inputs=inputs, outputs=outputs, name="listmle_model")
 
+mse_inputs = keras.Input(shape=(num_examples_per_list,137))
+mse_layer_one=tf.keras.layers.Dense(256, activation="relu")(mse_inputs)
+mse_layer_two=tf.keras.layers.Dense(64, activation="relu")(mse_layer_one)
+mse_layer_three=tf.keras.layers.Dense(1)(mse_layer_two)
+mse_outputs = tf.keras.layers.Reshape((num_examples_per_list,))(mse_layer_three)
+mse_model = keras.Model(inputs=mse_inputs, outputs=mse_outputs, name="mse_model")
 
 epochs = 30
+mse_model.compile(optimizer=tf.keras.optimizers.Adagrad(0.1), loss=tf.keras.losses.MeanSquaredError(), 
+	metrics=[tfr.keras.metrics.NDCGMetric(name="ndcg_metric", gain_fn=gain), tf.keras.metrics.RootMeanSquaredError()])
+mse_model.fit(cached_train, epochs=epochs, verbose=False)
+mse_model_result = mse_model.evaluate(cached_test, return_dict=True)
+print("NDCG of the MSE Model: {:.4f}".format(mse_model_result["ndcg_metric"]))
+
 listwise_model.compile(optimizer=tf.keras.optimizers.Adagrad(0.1), 
 	loss=tfr.keras.losses.ListMLELoss(), 
 	metrics=[tfr.keras.metrics.NDCGMetric(name="ndcg_metric", gain_fn=gain), tf.keras.metrics.RootMeanSquaredError()])
 listwise_model.fit(cached_train, epochs=epochs, verbose=False)
 listwise_model_result = listwise_model.evaluate(cached_test, return_dict=True)
 print("NDCG of the ListMLE model: {:.4f}".format(listwise_model_result["ndcg_metric"]))
-predictions=listwise_model.predict(cached_test)
-print("PREDICTIONS: " + str(predictions))
-print("RANKINGS: ")
-for item in cached_test.as_numpy_iterator():
-	print(str(item[1]))
+
+
 
